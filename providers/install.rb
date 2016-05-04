@@ -103,7 +103,7 @@ action :create do
     environment Hash['HOME' => user_home]
     code <<-EOH
       export NVM_DIR=#{nvm_dir}
-      source #{shell_config_file}
+      . #{nvm_dir}/nvm.sh
       nvm install #{from_source_arg} #{new_resource.version}
     EOH
   end
