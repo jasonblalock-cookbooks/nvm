@@ -25,6 +25,7 @@ action :create do
   chef_nvm_user = 'root'
   chef_nvm_group = 'root'
   nvm_dir = new_resource.nvm_directory
+  shell_config_file = '/etc/profile.d/nvm.sh'
 
   # If this is a user install...
   if new_resource.user
@@ -68,14 +69,31 @@ action :create do
     not_if { ::File.exists?(nvm_dir + "/.git") }
   end
 
-  template '/etc/profile.d/nvm.sh' do
-    source 'nvm.sh.erb'
-    mode 0755
-    cookbook 'nvm'
-    variables ({
-      :nvm_dir => nvm_dir,
-      :user_install => user_install
-    })
+  if new_resource.user
+    %w{.bashrc .bash_profile .profile}.each do |bash|
+      path = ::File.join(user_home, bash)
+      if ::File.exists?(path)
+        shell_config_file = path
+        ruby_block "insert_nvm_line" do
+          block do
+            file = Chef::Util::FileEdit.new(path)
+            file.insert_line_if_no_match("/\/nvm.sh/", "export NVM_DIR=\"$HOME/.nvm\"\n[ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"")
+            file.write_file
+          end
+        end
+        break
+      end
+    end
+  else
+    template '/etc/profile.d/nvm.sh' do
+      source 'nvm.sh.erb'
+      mode 0755
+      cookbook 'nvm'
+      variables ({
+        :nvm_dir => nvm_dir,
+        :user_install => user_install
+      })
+    end
   end
 
   script "Installing node.js #{new_resource.version}#{from_source_message}, as #{chef_nvm_user}:#{chef_nvm_group} from #{nvm_dir}" do
@@ -85,7 +103,7 @@ action :create do
     environment Hash['HOME' => user_home]
     code <<-EOH
       export NVM_DIR=#{nvm_dir}
-      source /etc/profile.d/nvm.sh
+      source #{shell_config_file}
       nvm install #{from_source_arg} #{new_resource.version}
     EOH
   end
