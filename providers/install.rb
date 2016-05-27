@@ -80,6 +80,7 @@ action :create do
             file.insert_line_if_no_match("/\/nvm.sh/", "export NVM_DIR=\"$HOME/.nvm\"\n[ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"")
             file.write_file
           end
+          not_if "grep -q /nvm.sh #{path}"
         end
         break
       end
